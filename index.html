@@ -24,7 +24,7 @@
       --text:        #E2E2F0;
       --muted:       #5B5C80;
       --green:       #00FF88;
-      --green-dk:    #00C860;
+      --green-dk:    #00C060;
       --purple:      #7C3AED;
       --purple-dk:   #5B21B6;
       --gold:        #FFD700;
@@ -449,6 +449,13 @@
     /* ── Number input spinner ─────────────────────────────────────────────── */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { opacity: 0.3; }
+
+    /* ── Time input ───────────────────────────────────────────────────────── */
+    input[type=time]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+
+    /* ── Piggy fill animation ─────────────────────────────────────────────── */
+    #moneyFill     { transition: height 0.9s cubic-bezier(.34,1.1,.64,1), y 0.9s cubic-bezier(.34,1.1,.64,1); }
+    #moneyGlowLine { transition: y 0.9s cubic-bezier(.34,1.1,.64,1), opacity 0.4s; }
   </style>
 </head>
 <body>
@@ -606,6 +613,11 @@
     <button class="btn btn-ghost btn-sm" onclick="UI.openCheckin()">🔔 Daily Check-in</button>
   </div>
 
+  <!-- Bonus Row -->
+  <div style="text-align:center;margin-bottom:14px">
+    <button class="btn btn-ghost btn-sm" onclick="UI.openBonus()" style="color:#FFAA00;border-color:rgba(255,170,0,0.3)">🎁 Add Bonus</button>
+  </div>
+
   <!-- History -->
   <div class="card">
     <div class="section-label">Recent Activity</div>
@@ -651,6 +663,30 @@
   </div>
 </div>
 
+<!-- ════════════════════ BONUS MODAL ════════════════════ -->
+<div class="overlay" id="bonusOverlay" onclick="UI.closeBonus(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>🎁 Add Bonus</h2>
+    <p class="modal-sub">Manually drop extra money into your piggy bank</p>
+    <div class="quick-amounts">
+      <button class="quick-btn" onclick="UI.setBonusAmt(5)" style="color:#FFAA00">$5</button>
+      <button class="quick-btn" onclick="UI.setBonusAmt(10)" style="color:#FFAA00">$10</button>
+      <button class="quick-btn" onclick="UI.setBonusAmt(25)" style="color:#FFAA00">$25</button>
+      <button class="quick-btn" onclick="UI.setBonusAmt(50)" style="color:#FFAA00">$50</button>
+    </div>
+    <input class="input-field" type="number" id="bonusInput"
+      placeholder="Enter amount…" min="0.01" step="0.01"
+      style="text-align:center;font-size:22px;margin-bottom:8px">
+    <input class="input-field" type="text" id="bonusLabel"
+      placeholder="Label (e.g. Birthday gift)" style="margin-bottom:14px">
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="UI.closeBonus()">Cancel</button>
+      <button class="btn" onclick="App.addBonus()" style="background:linear-gradient(135deg,#FFAA00,#FF8800);color:#3A1A00;box-shadow:0 4px 20px rgba(255,170,0,0.35)">Add 🎉</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════ SETTINGS MODAL ════════════════════ -->
 <div class="overlay center" id="settingsOverlay" onclick="UI.closeSettings(event)">
   <div class="modal">
@@ -670,9 +706,14 @@
       <input class="input-field" type="number" id="sBonus" min="0" step="1">
       <div class="field-hint">Automatically added after every 7 consecutive days</div>
     </div>
-    <div class="modal-section" style="margin-bottom:20px">
+    <div class="modal-section">
       <label class="field-label" for="sGoal">🏆 Savings Goal ($)</label>
       <input class="input-field" type="number" id="sGoal" min="1" step="10">
+    </div>
+    <div class="modal-section" style="margin-bottom:20px">
+      <label class="field-label" for="sNotifTime">🔔 Daily Reminder Time</label>
+      <input class="input-field" type="time" id="sNotifTime">
+      <div class="field-hint">Send a push notification at this time each day (notifications must be enabled)</div>
     </div>
 
     <div class="btn-row" style="margin-bottom:8px">
@@ -706,7 +747,8 @@ const DEFAULTS = {
     taskName: 'Daily Task',
     amountPerTask: 10,
     bonusAmount: 50,
-    goal: 500
+    goal: 500,
+    notifTime: '09:00'
   }
 };
 
@@ -747,7 +789,9 @@ function updatePiggyFill(pct) {
   const clamped    = Math.min(100, Math.max(0, pct));
   const bodyBottom = 178;
   const bodyHeight = 116;
-  const fillH      = (clamped / 100) * bodyHeight;
+  // Ensure at least a sliver is visible when any money exists
+  const rawFillH   = (clamped / 100) * bodyHeight;
+  const fillH      = rawFillH > 0 ? Math.max(rawFillH, 8) : 0;
   const fillY      = bodyBottom - fillH;
 
   const fillRect  = document.getElementById('moneyFill');
@@ -755,11 +799,12 @@ function updatePiggyFill(pct) {
   const pctLabel  = document.getElementById('fillPctLabel');
 
   if (fillH > 0) {
-    fillRect.setAttribute('y',      fillY);
-    fillRect.setAttribute('height', fillH + 8);
-    glowLine.setAttribute('y',      fillY);
+    // Set via style so CSS transitions animate smoothly
+    fillRect.style.y      = fillY;
+    fillRect.style.height = fillH + 8;
+    glowLine.style.y      = fillY;
     glowLine.setAttribute('opacity','0.9');
-    if (clamped > 10) {
+    if (clamped > 8) {
       pctLabel.setAttribute('y',       Math.max(fillY + 22, 148));
       pctLabel.setAttribute('opacity', '0.9');
       pctLabel.textContent = clamped.toFixed(0) + '%';
@@ -767,7 +812,7 @@ function updatePiggyFill(pct) {
       pctLabel.setAttribute('opacity', '0');
     }
   } else {
-    fillRect.setAttribute('height', '0');
+    fillRect.style.height = 0;
     glowLine.setAttribute('opacity','0');
     pctLabel.setAttribute('opacity','0');
   }
@@ -919,14 +964,32 @@ const App = {
   },
 
   saveSettings() {
-    const taskName    = document.getElementById('sTaskName').value.trim() || 'Daily Task';
+    const taskName      = document.getElementById('sTaskName').value.trim() || 'Daily Task';
     const amountPerTask = parseFloat(document.getElementById('sAmount').value) || 10;
-    const bonusAmount = parseFloat(document.getElementById('sBonus').value) || 50;
-    const goal        = parseFloat(document.getElementById('sGoal').value)  || 500;
-    state.settings    = { taskName, amountPerTask, bonusAmount, goal };
+    const bonusAmount   = parseFloat(document.getElementById('sBonus').value) || 50;
+    const goal          = parseFloat(document.getElementById('sGoal').value)  || 500;
+    const notifTime     = document.getElementById('sNotifTime').value || '09:00';
+    state.settings      = { taskName, amountPerTask, bonusAmount, goal, notifTime };
     save();
     UI.closeSettings();
     toast('Settings saved! ⚙️', 'info');
+    render();
+  },
+
+  addBonus() {
+    const amt   = parseFloat(document.getElementById('bonusInput').value);
+    const label = document.getElementById('bonusLabel').value.trim() || 'Bonus';
+    if (!amt || amt <= 0) { toast('Enter a valid amount', 'error'); return; }
+
+    state.balance = parseFloat((state.balance + amt).toFixed(2));
+    state.history.unshift({ type:'earn', amount:amt, label, timestamp:Date.now() });
+    save();
+    document.getElementById('bonusInput').value = '';
+    document.getElementById('bonusLabel').value  = '';
+    UI.closeBonus();
+    spawnCoins(Math.min(8, Math.ceil(amt / 5)));
+    wigglePig();
+    toast('+$' + amt.toFixed(2) + ' bonus added! 🎉', 'success');
     render();
   },
 
@@ -952,12 +1015,21 @@ const UI = {
   closeWithdraw(e){ if (!e || e.target.id === 'withdrawOverlay') document.getElementById('withdrawOverlay').classList.remove('open'); },
   setWithdrawAmt(n){ document.getElementById('withdrawInput').value = n; },
 
+  openBonus() {
+    document.getElementById('bonusInput').value = '';
+    document.getElementById('bonusLabel').value  = '';
+    document.getElementById('bonusOverlay').classList.add('open');
+  },
+  closeBonus(e){ if (!e || e.target.id === 'bonusOverlay') document.getElementById('bonusOverlay').classList.remove('open'); },
+  setBonusAmt(n){ document.getElementById('bonusInput').value = n; },
+
   openSettings() {
-    const { taskName, amountPerTask, bonusAmount, goal } = state.settings;
-    document.getElementById('sTaskName').value = taskName;
-    document.getElementById('sAmount').value   = amountPerTask;
-    document.getElementById('sBonus').value    = bonusAmount;
-    document.getElementById('sGoal').value     = goal;
+    const { taskName, amountPerTask, bonusAmount, goal, notifTime } = state.settings;
+    document.getElementById('sTaskName').value   = taskName;
+    document.getElementById('sAmount').value     = amountPerTask;
+    document.getElementById('sBonus').value      = bonusAmount;
+    document.getElementById('sGoal').value       = goal;
+    document.getElementById('sNotifTime').value  = notifTime || '09:00';
     document.getElementById('settingsOverlay').classList.add('open');
   },
   closeSettings(e){ if (!e || e.target.id === 'settingsOverlay') document.getElementById('settingsOverlay').classList.remove('open'); }
@@ -1011,6 +1083,9 @@ function toast(msg, type = 'success') {
 
 /* ── Notifications ───────────────────────────────────────────────────────────── */
 const Notif = {
+  _lastNotifDate: null,
+  _schedulerInterval: null,
+
   checkBanner() {
     if (!('Notification' in window)) return;
     const banner = document.getElementById('notifBanner');
@@ -1025,6 +1100,7 @@ const Notif = {
           body: "You're all set! We'll remind you to check in daily.",
           icon: 'icon.svg', tag: 'welcome'
         });
+        this.startScheduler();
       } else {
         toast('Notifications blocked in browser settings', 'info');
       }
@@ -1040,6 +1116,22 @@ const Notif = {
       tag:    'daily-checkin',
       renotify: false
     });
+  },
+  startScheduler() {
+    if (this._schedulerInterval) clearInterval(this._schedulerInterval);
+    this._schedulerInterval = setInterval(() => this._tick(), 30_000);
+  },
+  _tick() {
+    if (Notification.permission !== 'granted') return;
+    if (isTodayDone()) return;
+    const now    = new Date();
+    const hhmm   = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const target = state.settings.notifTime || '09:00';
+    const today  = todayStr();
+    if (hhmm === target && this._lastNotifDate !== today) {
+      this._lastNotifDate = today;
+      this.maybeShow();
+    }
   }
 };
 
@@ -1077,6 +1169,7 @@ if ('serviceWorker' in navigator) {
 /* ── Boot ────────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   render();
+  if (Notification.permission === 'granted') Notif.startScheduler();
   if (!isTodayDone()) {
     setTimeout(() => UI.openCheckin(), 1400);
   }

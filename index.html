@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0A0B14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Piggy Bank">
+  <meta name="description" content="Track your daily habits and earn money every time you complete a task.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>🐷 Daily Piggy Bank</title>
+  <style>
+    /* ── Reset & Variables ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0A0B14;
+      --bg2:         #0F0D1E;
+      --card:        rgba(255,255,255,0.04);
+      --border:      rgba(255,255,255,0.08);
+      --text:        #E2E2F0;
+      --muted:       #5B5C80;
+      --green:       #00FF88;
+      --green-dk:    #00C860;
+      --purple:      #7C3AED;
+      --purple-dk:   #5B21B6;
+      --gold:        #FFD700;
+      --danger:      #FF3B6B;
+      --radius-lg:   20px;
+      --radius-md:   14px;
+      --radius-sm:   10px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      min-height: 100%;
+      background: linear-gradient(160deg, var(--bg) 0%, var(--bg2) 50%, var(--bg) 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      font-family: -apple-system, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      overscroll-behavior: none;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 20px 16px;
+      padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+      padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .header-title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .header-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 0.04em; }
+
+    /* ── Banners ──────────────────────────────────────────────────────────── */
+    .banner {
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .banner-install {
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.3);
+    }
+    .banner-notif {
+      background: rgba(255,160,0,0.08);
+      border: 1px solid rgba(255,160,0,0.25);
+    }
+    .banner-text  { font-size: 13px; font-weight: 600; }
+    .banner-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .banner-install .banner-text { color: #A78BFA; }
+    .banner-notif .banner-text   { color: #FFAA00; }
+
+    /* ── Task Badge ───────────────────────────────────────────────────────── */
+    .task-badge {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .task-badge-inner {
+      display: inline-block;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.4);
+      border-radius: 50px;
+      padding: 6px 18px;
+      color: #A78BFA;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Piggy ────────────────────────────────────────────────────────────── */
+    .piggy-wrap {
+      text-align: center;
+      margin-bottom: -6px;
+      filter: drop-shadow(0 0 24px rgba(124,58,237,0.3));
+      animation: pigFloat 3.5s ease-in-out infinite;
+    }
+    .piggy-wrap.wiggling { animation: pigWiggle 0.5s ease forwards; }
+
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      margin-bottom: 12px;
+    }
+
+    /* ── Balance ──────────────────────────────────────────────────────────── */
+    .balance-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .balance-amount {
+      font-size: 54px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #00FF88, #00C060);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .progress-track {
+      height: 8px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00C060, #00FF88);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.6s cubic-bezier(.34,1.1,.64,1);
+      box-shadow: 0 0 8px rgba(0,255,136,0.5);
+    }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-meta span { font-size: 11px; color: var(--muted); }
+
+    /* ── Streak ───────────────────────────────────────────────────────────── */
+    .streak-card {
+      background: rgba(255,160,0,0.06);
+      border-color: rgba(255,160,0,0.2);
+    }
+    .streak-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .streak-count { font-size: 20px; font-weight: 700; color: #FFAA00; }
+    .streak-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .stars { display: flex; gap: 3px; flex-shrink: 0; }
+    .star { font-size: 15px; transition: all 0.3s; }
+    .star.lit { filter: drop-shadow(0 0 4px rgba(255,200,0,0.8)); }
+    .star.dim { opacity: 0.18; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      display: block;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      text-align: center;
+      transition: transform 0.12s, opacity 0.12s;
+      width: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active           { transform: scale(0.96); }
+    .btn-green            { background: linear-gradient(135deg,#00FF88,#00C060); color:#001A0D; box-shadow:0 4px 20px rgba(0,255,136,0.3); }
+    .btn-purple           { background: linear-gradient(135deg,#7C3AED,#5B21B6); color:white;  box-shadow:0 4px 20px rgba(124,58,237,0.3); }
+    .btn-ghost            { background:rgba(255,255,255,0.07); color:#B0B0D0; border:1px solid rgba(255,255,255,0.1); }
+    .btn-done             { background:rgba(255,255,255,0.05); color:var(--muted); border:1px solid rgba(255,255,255,0.07); animation:none !important; }
+    .btn-sm               { padding:9px 16px; font-size:13px; width:auto; display:inline-block; }
+    .btn-row              { display:flex; gap:10px; }
+    .btn-row .btn         { flex:1; }
+    .btn-glow-green       { animation: pulseGlow 2.5s infinite; }
+
+    /* Quick amounts */
+    .quick-amounts { display:flex; gap:8px; margin-bottom:12px; }
+    .quick-btn {
+      flex:1; padding:10px 4px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:var(--radius-sm);
+      color:var(--muted);
+      font-size:13px; font-family:inherit; font-weight:600;
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .quick-btn:active { transform:scale(0.95); }
+
+    /* Small banner button */
+    .banner-btn {
+      border:none; border-radius:var(--radius-sm);
+      padding:9px 14px; font-size:13px; font-weight:600;
+      cursor:pointer; font-family:inherit; white-space:nowrap; flex-shrink:0;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .banner-btn-purple { background:var(--purple); color:white; }
+    .banner-btn-gold   { background:#FFAA00; color:#3A1A00; }
+
+    /* ── History ──────────────────────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; margin-right: 10px; flex-shrink: 0;
+    }
+    .history-icon.earn     { background: rgba(0,255,136,0.1); }
+    .history-icon.withdraw { background: rgba(255,59,107,0.1); }
+    .history-meta { flex: 1; min-width: 0; }
+    .history-label { font-size: 13px; color: #C0C0E0; font-weight: 500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .history-date  { font-size: 11px; color: var(--muted); }
+    .history-amount { font-weight: 700; font-size: 15px; flex-shrink: 0; margin-left: 8px; }
+    .history-amount.earn     { color: var(--green); }
+    .history-amount.withdraw { color: var(--danger); }
+    .empty-history { text-align:center; padding:24px 0; color:var(--muted); font-size:14px; }
+
+    /* ── Inputs ───────────────────────────────────────────────────────────── */
+    .input-field {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .input-field:focus         { border-color: var(--purple); }
+    .input-field::placeholder  { color: #3A3A60; }
+    .field-label { font-size:11px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; font-weight:600; margin-bottom:7px; display:block; }
+    .field-hint  { font-size:11px; color:var(--muted); margin-top:5px; }
+
+    /* ── Modals ───────────────────────────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 200;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .overlay.center { align-items: center; padding: 20px; }
+
+    .modal {
+      background: #111226;
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 28px 28px 0 0;
+      padding: 10px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+      width: 100%; max-width: 480px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(.34,1.1,.64,1);
+      box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+    .overlay.open .modal { transform: translateY(0); }
+    .overlay.center .modal {
+      border-radius: 28px;
+      transform: scale(0.88);
+      transition: transform 0.3s cubic-bezier(.34,1.1,.64,1), opacity 0.25s ease;
+      opacity: 0;
+      padding: 24px 20px 28px;
+    }
+    .overlay.center.open .modal { transform: scale(1); opacity: 1; }
+
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 2px;
+      margin: 14px auto 20px;
+    }
+    .modal h2 {
+      font-size: 20px; font-weight: 700;
+      color: var(--text); text-align: center;
+      margin-bottom: 6px;
+    }
+    .modal-sub {
+      font-size: 13px; color: var(--muted);
+      text-align: center; margin-bottom: 22px;
+      line-height: 1.6;
+    }
+    .modal-section { margin-bottom: 16px; }
+
+    /* ── Toast ────────────────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      top: max(20px, env(safe-area-inset-top, 20px));
+      left: 50%; transform: translateX(-50%) translateY(0);
+      padding: 12px 22px;
+      border-radius: 50px;
+      font-weight: 600; font-size: 14px;
+      z-index: 999; white-space: nowrap;
+      color: white; pointer-events: none;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      animation: toastSlide 0.3s ease;
+    }
+    .toast.success { background: #00C060; }
+    .toast.error   { background: var(--danger); }
+    .toast.info    { background: var(--purple); }
+
+    /* ── Bonus Splash ─────────────────────────────────────────────────────── */
+    .bonus-splash {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 800; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .bonus-splash.show { opacity: 1; }
+    .bonus-card {
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      color: #3A1A00;
+      padding: 28px 48px; border-radius: 24px;
+      text-align: center;
+      animation: bigPop 0.5s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 0 60px rgba(255,165,0,0.6), 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .bonus-emoji  { font-size: 52px; }
+    .bonus-title  { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-top: 4px; }
+    .bonus-amount { font-size: 22px; font-weight: 700; margin-top: 4px; }
+
+    /* ── Coins ────────────────────────────────────────────────────────────── */
+    .coin {
+      position: fixed;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #FFE066, #FFD700, #FFA500);
+      border: 2px solid #DAA520;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: bold; color: #7A5500;
+      animation: coinFall 1.2s ease-in forwards;
+      z-index: 1000;
+      box-shadow: 0 0 12px rgba(255,215,0,0.7);
+      pointer-events: none;
+    }
+
+    /* ── Daily check-in pig ───────────────────────────────────────────────── */
+    .checkin-pig {
+      font-size: 64px; text-align: center; line-height: 1;
+      filter: drop-shadow(0 0 20px rgba(124,58,237,0.5));
+      margin-bottom: 10px;
+    }
+
+    /* ── Reset warning ────────────────────────────────────────────────────── */
+    .reset-btn {
+      display: block; width: 100%;
+      background: rgba(255,59,107,0.08);
+      border: 1px solid rgba(255,59,107,0.2);
+      color: var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; margin-top: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Animations ───────────────────────────────────────────────────────── */
+    @keyframes pigFloat {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-10px); }
+    }
+    @keyframes pigWiggle {
+      0%,100% { transform: rotate(0); }
+      20%     { transform: rotate(-6deg); }
+      60%     { transform: rotate(6deg); }
+    }
+    @keyframes coinFall {
+      0%   { transform: translateY(0) rotate(0deg) scale(1);   opacity: 1; }
+      60%  { transform: translateY(150px) rotate(200deg) scale(0.9); opacity: 0.9; }
+      100% { transform: translateY(380px) rotate(380deg) scale(0.6); opacity: 0; }
+    }
+    @keyframes bigPop {
+      0%   { opacity:0; transform: scale(0.4) rotate(-8deg); }
+      70%  { transform: scale(1.1) rotate(3deg); }
+      100% { opacity:1; transform: scale(1) rotate(0deg); }
+    }
+    @keyframes toastSlide {
+      from { opacity:0; transform: translateX(-50%) translateY(-14px); }
+      to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes pulseGlow {
+      0%,100% { box-shadow: 0 4px 20px rgba(0,255,136,0.3); }
+      50%     { box-shadow: 0 4px 30px rgba(0,255,136,0.65), 0 0 0 6px rgba(0,255,136,0.08); }
+    }
+
+    /* ── Scrollbar hide ───────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { display: none; }
+    * { scrollbar-width: none; }
+
+    /* ── Number input spinner ─────────────────────────────────────────────── */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { opacity: 0.3; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="header-title">🐷 Piggy Bank</div>
+      <div class="header-sub">TRACK · EARN · SAVE</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="UI.openSettings()">⚙️ Settings</button>
+  </div>
+
+  <!-- Install Banner -->
+  <div class="banner banner-install" id="installBanner" style="display:none">
+    <div>
+      <div class="banner-text">📱 Add to Home Screen</div>
+      <div class="banner-sub">Install for the full app experience</div>
+    </div>
+    <button class="banner-btn banner-btn-purple" onclick="PWA.install()">Install</button>
+  </div>
+
+  <!-- Notification Banner -->
+  <div class="banner banner-notif" id="notifBanner" style="display:none">
+    <div class="banner-text">🔔 Enable daily reminders?</div>
+    <button class="banner-btn banner-btn-gold" onclick="Notif.request()">Enable</button>
+  </div>
+
+  <!-- Task Badge -->
+  <div class="task-badge">
+    <span class="task-badge-inner" id="taskBadge">🎯 Daily Task</span>
+  </div>
+
+  <!-- Piggy Bank SVG -->
+  <div class="piggy-wrap" id="piggyWrap">
+    <svg id="piggySvg" viewBox="0 0 220 200" width="270" height="245" style="overflow:visible">
+      <defs>
+        <clipPath id="bodyClip">
+          <ellipse cx="105" cy="120" rx="72" ry="58"/>
+        </clipPath>
+        <linearGradient id="moneyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#00FF88" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="#00B860" stop-opacity="1"/>
+        </linearGradient>
+        <linearGradient id="pigBodyGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3B2060"/>
+          <stop offset="100%" stop-color="#1E1040"/>
+        </linearGradient>
+        <filter id="neonGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Tail -->
+      <path d="M 38 102 Q 10 86 16 66 Q 23 48 40 68"
+        stroke="#7C3AED" stroke-width="5" fill="none"
+        stroke-linecap="round" filter="url(#softGlow)"/>
+
+      <!-- Body -->
+      <ellipse cx="105" cy="120" rx="72" ry="58"
+        fill="url(#pigBodyGrad)" stroke="#5B21B6" stroke-width="2"/>
+
+      <!-- Money fill (updated via JS) -->
+      <rect id="moneyFill" x="33" y="178" width="144" height="0"
+        fill="url(#moneyGrad)" clip-path="url(#bodyClip)" opacity="0.82"/>
+
+      <!-- Glow line at fill surface -->
+      <rect id="moneyGlowLine" x="33" y="178" width="144" height="3"
+        fill="#00FF88" clip-path="url(#bodyClip)"
+        filter="url(#neonGlow)" opacity="0"/>
+
+      <!-- Body shine -->
+      <ellipse cx="86" cy="96" rx="18" ry="10"
+        fill="white" opacity="0.06" transform="rotate(-20 86 96)"/>
+
+      <!-- Legs -->
+      <rect x="52"  y="169" width="16" height="21" rx="8" fill="#1E1040" stroke="#5B21B6" stroke-width="1.5"/>
+      <rect x="74"  y="169" width="16" height="21" rx="8" fill="#1E1040" stroke="#5B21B6" stroke-width="1.5"/>
+      <rect x="98"  y="169" width="16" height="21" rx="8" fill="#1E1040" stroke="#5B21B6" stroke-width="1.5"/>
+      <rect x="122" y="169" width="16" height="21" rx="8" fill="#1E1040" stroke="#5B21B6" stroke-width="1.5"/>
+
+      <!-- Head -->
+      <ellipse cx="165" cy="100" rx="32" ry="30"
+        fill="url(#pigBodyGrad)" stroke="#5B21B6" stroke-width="2"/>
+
+      <!-- Ear -->
+      <ellipse cx="157" cy="73" rx="13" ry="10" fill="#5B21B6" transform="rotate(-15 157 73)"/>
+      <ellipse cx="157" cy="73" rx="8"  ry="6"  fill="#7C3AED" transform="rotate(-15 157 73)"/>
+
+      <!-- Snout -->
+      <ellipse cx="188" cy="108" rx="17" ry="13" fill="#2D1B55" stroke="#5B21B6" stroke-width="1.5"/>
+      <circle cx="183" cy="107" r="4" fill="#0A0614" opacity="0.9"/>
+      <circle cx="193" cy="107" r="4" fill="#0A0614" opacity="0.9"/>
+
+      <!-- Eye -->
+      <circle cx="164"   cy="90"   r="5.5" fill="#0A0614"/>
+      <circle cx="165"   cy="91"   r="3.5" fill="#00FF88" opacity="0.9"/>
+      <circle cx="166.5" cy="89.5" r="1.2" fill="white"   opacity="0.95"/>
+
+      <!-- Coin slot -->
+      <rect x="88" y="62" width="32" height="6" rx="3"
+        fill="#00FF88" opacity="0.85" filter="url(#neonGlow)"/>
+
+      <!-- Fill % label (updated via JS) -->
+      <text id="fillPctLabel" x="105" y="150"
+        text-anchor="middle" fill="white" font-size="12"
+        font-weight="bold" font-family="'Courier New',monospace"
+        opacity="0" style="pointer-events:none"/>
+    </svg>
+  </div>
+
+  <!-- Balance Card -->
+  <div class="card">
+    <div class="balance-label">Current Balance</div>
+    <div class="balance-amount" id="balanceDisplay">$0.00</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressBar"></div>
+    </div>
+    <div class="progress-meta">
+      <span id="progressPct">0% of goal</span>
+      <span id="progressLeft">$500 to go</span>
+    </div>
+  </div>
+
+  <!-- Streak Card -->
+  <div class="card streak-card">
+    <div class="streak-inner">
+      <div>
+        <div class="streak-count" id="streakCount">🔥 0-day streak</div>
+        <div class="streak-sub"  id="streakSub">Complete your first task to start!</div>
+      </div>
+      <div class="stars" id="starsRow"></div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="btn-row" style="margin-bottom:10px">
+    <button class="btn btn-green btn-glow-green" id="taskBtn" onclick="App.completeTask()">
+      💰 Task Done!
+    </button>
+    <button class="btn btn-purple" onclick="UI.openWithdraw()">
+      💸 Withdraw
+    </button>
+  </div>
+
+  <!-- Daily reminder link -->
+  <div id="reminderRow" style="text-align:center;margin-bottom:14px">
+    <button class="btn btn-ghost btn-sm" onclick="UI.openCheckin()">🔔 Daily Check-in</button>
+  </div>
+
+  <!-- History -->
+  <div class="card">
+    <div class="section-label">Recent Activity</div>
+    <div id="historyList"></div>
+    <div class="empty-history" id="emptyHistory">No activity yet — complete your first task! 🎯</div>
+  </div>
+
+</div><!-- /.app -->
+
+<!-- ════════════════════ DAILY CHECK-IN MODAL ════════════════════ -->
+<div class="overlay" id="checkinOverlay" onclick="UI.closeCheckin(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="checkin-pig">🐷</div>
+    <h2>Daily Check-in!</h2>
+    <p class="modal-sub" id="checkinSub">Did you complete your task today?</p>
+    <div class="btn-row">
+      <button class="btn btn-green" id="checkinYesBtn" onclick="App.completeTask()">✅ Yes! Earn $</button>
+      <button class="btn btn-ghost" onclick="App.skipDay()">❌ Not today</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ WITHDRAW MODAL ════════════════════ -->
+<div class="overlay" id="withdrawOverlay" onclick="UI.closeWithdraw(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>💸 Withdraw Funds</h2>
+    <p class="modal-sub" id="withdrawAvail">Available: $0.00</p>
+    <div class="quick-amounts">
+      <button class="quick-btn" onclick="UI.setWithdrawAmt(5)">$5</button>
+      <button class="quick-btn" onclick="UI.setWithdrawAmt(10)">$10</button>
+      <button class="quick-btn" onclick="UI.setWithdrawAmt(20)">$20</button>
+      <button class="quick-btn" onclick="UI.setWithdrawAmt(50)">$50</button>
+    </div>
+    <input class="input-field" type="number" id="withdrawInput"
+      placeholder="Or enter amount…" min="0.01" step="0.01"
+      style="text-align:center;font-size:22px;margin-bottom:14px">
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="UI.closeWithdraw()">Cancel</button>
+      <button class="btn btn-purple" onclick="App.doWithdraw()">Withdraw</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SETTINGS MODAL ════════════════════ -->
+<div class="overlay center" id="settingsOverlay" onclick="UI.closeSettings(event)">
+  <div class="modal">
+    <h2>⚙️ Settings</h2>
+    <p class="modal-sub">Configure your task and earnings</p>
+
+    <div class="modal-section">
+      <label class="field-label" for="sTaskName">🎯 Task Name</label>
+      <input class="input-field" type="text" id="sTaskName" placeholder="e.g. Morning Run">
+    </div>
+    <div class="modal-section">
+      <label class="field-label" for="sAmount">💰 Earnings Per Task ($)</label>
+      <input class="input-field" type="number" id="sAmount" min="0.01" step="0.5">
+    </div>
+    <div class="modal-section">
+      <label class="field-label" for="sBonus">🌟 7-Day Streak Bonus ($)</label>
+      <input class="input-field" type="number" id="sBonus" min="0" step="1">
+      <div class="field-hint">Automatically added after every 7 consecutive days</div>
+    </div>
+    <div class="modal-section" style="margin-bottom:20px">
+      <label class="field-label" for="sGoal">🏆 Savings Goal ($)</label>
+      <input class="input-field" type="number" id="sGoal" min="1" step="10">
+    </div>
+
+    <div class="btn-row" style="margin-bottom:8px">
+      <button class="btn btn-ghost" onclick="UI.closeSettings()">Cancel</button>
+      <button class="btn btn-purple" onclick="App.saveSettings()">Save ✨</button>
+    </div>
+    <button class="reset-btn" onclick="App.resetData()">🗑 Reset All Data</button>
+  </div>
+</div>
+
+<!-- Bonus Splash -->
+<div class="bonus-splash" id="bonusSplash">
+  <div class="bonus-card">
+    <div class="bonus-emoji">🎉</div>
+    <div class="bonus-title">STREAK BONUS!</div>
+    <div class="bonus-amount" id="bonusAmtLabel">+$50</div>
+  </div>
+</div>
+
+<!-- ════════════════════ APP SCRIPT ════════════════════ -->
+<script>
+
+/* ── State & Storage ─────────────────────────────────────────────────────────── */
+const STORAGE_KEY = 'piggybank_v2';
+const DEFAULTS = {
+  balance: 0,
+  streak: 0,
+  lastCheckInDate: null,
+  history: [],
+  settings: {
+    taskName: 'Daily Task',
+    amountPerTask: 10,
+    bonusAmount: 50,
+    goal: 500
+  }
+};
+
+let state = (() => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULTS, ...parsed, settings: { ...DEFAULTS.settings, ...(parsed.settings || {}) } };
+    }
+  } catch(e) {}
+  return structuredClone(DEFAULTS);
+})();
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+/* ── Date Helpers ────────────────────────────────────────────────────────────── */
+function todayStr() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+function isTodayDone() {
+  return state.lastCheckInDate === todayStr();
+}
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d   = new Date(ts);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/* ── Piggy Fill ──────────────────────────────────────────────────────────────── */
+function updatePiggyFill(pct) {
+  const clamped    = Math.min(100, Math.max(0, pct));
+  const bodyBottom = 178;
+  const bodyHeight = 116;
+  const fillH      = (clamped / 100) * bodyHeight;
+  const fillY      = bodyBottom - fillH;
+
+  const fillRect  = document.getElementById('moneyFill');
+  const glowLine  = document.getElementById('moneyGlowLine');
+  const pctLabel  = document.getElementById('fillPctLabel');
+
+  if (fillH > 0) {
+    fillRect.setAttribute('y',      fillY);
+    fillRect.setAttribute('height', fillH + 8);
+    glowLine.setAttribute('y',      fillY);
+    glowLine.setAttribute('opacity','0.9');
+    if (clamped > 10) {
+      pctLabel.setAttribute('y',       Math.max(fillY + 22, 148));
+      pctLabel.setAttribute('opacity', '0.9');
+      pctLabel.textContent = clamped.toFixed(0) + '%';
+    } else {
+      pctLabel.setAttribute('opacity', '0');
+    }
+  } else {
+    fillRect.setAttribute('height', '0');
+    glowLine.setAttribute('opacity','0');
+    pctLabel.setAttribute('opacity','0');
+  }
+}
+
+/* ── Render ──────────────────────────────────────────────────────────────────── */
+function render() {
+  const { balance, streak, history, settings } = state;
+  const { taskName, amountPerTask, bonusAmount, goal } = settings;
+  const done    = isTodayDone();
+  const fillPct = Math.min(100, (balance / goal) * 100);
+  const daysLeft = 7 - (streak % 7);
+
+  // Badge
+  document.getElementById('taskBadge').textContent = '🎯 ' + taskName;
+
+  // Piggy
+  updatePiggyFill(fillPct);
+
+  // Balance
+  document.getElementById('balanceDisplay').textContent = '$' + balance.toFixed(2);
+
+  // Progress
+  document.getElementById('progressBar').style.width  = fillPct.toFixed(2) + '%';
+  document.getElementById('progressPct').textContent  = fillPct.toFixed(1) + '% of $' + goal + ' goal';
+  document.getElementById('progressLeft').textContent = '$' + Math.max(0, goal - balance).toFixed(2) + ' to go';
+
+  // Streak
+  document.getElementById('streakCount').textContent = '🔥 ' + streak + '-day streak';
+  document.getElementById('streakSub').textContent   = daysLeft === 7
+    ? (streak === 0 ? 'Complete a task to start your streak!' : 'Keep it going tomorrow!')
+    : daysLeft + ' more day' + (daysLeft === 1 ? '' : 's') + ' → $' + bonusAmount + ' bonus!';
+
+  // Stars
+  const starsRow = document.getElementById('starsRow');
+  starsRow.innerHTML = '';
+  const lit = streak % 7;
+  for (let i = 0; i < 7; i++) {
+    const s = document.createElement('span');
+    s.className   = 'star ' + (i < lit ? 'lit' : 'dim');
+    s.textContent = '⭐';
+    starsRow.appendChild(s);
+  }
+
+  // Task button
+  const taskBtn = document.getElementById('taskBtn');
+  if (done) {
+    taskBtn.className   = 'btn btn-done';
+    taskBtn.textContent = '✅ Done Today!';
+  } else {
+    taskBtn.className   = 'btn btn-green btn-glow-green';
+    taskBtn.textContent = '💰 Task Done!  +$' + amountPerTask;
+  }
+
+  // Reminder row
+  document.getElementById('reminderRow').style.display = done ? 'none' : 'block';
+
+  // Check-in modal content
+  document.getElementById('checkinSub').innerHTML =
+    'Did you complete your <strong style="color:#A78BFA">' + taskName + '</strong> today?' +
+    '<br><span style="color:var(--muted)">Earn $' + amountPerTask +
+    (daysLeft === 1 ? ' + $' + bonusAmount + ' BONUS! 🎉' : '') + '</span>';
+  document.getElementById('checkinYesBtn').textContent = '✅ Yes! +$' + amountPerTask;
+
+  // Withdraw modal
+  document.getElementById('withdrawAvail').textContent = 'Available: $' + balance.toFixed(2);
+
+  // History
+  const list  = document.getElementById('historyList');
+  const empty = document.getElementById('emptyHistory');
+  if (!history || history.length === 0) {
+    list.innerHTML    = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    list.innerHTML = history.slice(0, 8).map(item => `
+      <div class="history-item">
+        <div class="history-icon ${item.type}">${item.type === 'earn' ? '💰' : '💸'}</div>
+        <div class="history-meta">
+          <div class="history-label">${escHtml(item.label || (item.type === 'earn' ? 'Task Completed' : 'Withdrawal'))}</div>
+          <div class="history-date">${fmtDate(item.timestamp)}</div>
+        </div>
+        <div class="history-amount ${item.type}">${item.type === 'earn' ? '+' : '−'}$${item.amount.toFixed(2)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Notification banner
+  Notif.checkBanner();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── App Logic ───────────────────────────────────────────────────────────────── */
+const App = {
+  completeTask() {
+    if (isTodayDone()) {
+      toast('Already done today! Come back tomorrow 🌟', 'info');
+      UI.closeCheckin();
+      return;
+    }
+    const { amountPerTask, bonusAmount, taskName } = state.settings;
+    const newStreak = state.streak + 1;
+    const isBonus   = newStreak % 7 === 0;
+    const earned    = amountPerTask + (isBonus ? bonusAmount : 0);
+
+    state.streak           = newStreak;
+    state.lastCheckInDate  = todayStr();
+    state.balance          = parseFloat((state.balance + earned).toFixed(2));
+    state.history.unshift({
+      type:      'earn',
+      amount:    earned,
+      label:     taskName + (isBonus ? ' + 7-Day Bonus! 🎉' : ''),
+      timestamp: Date.now()
+    });
+    save();
+
+    spawnCoins(Math.min(8, Math.ceil(earned / 5)));
+    wigglePig();
+    if (isBonus) showBonus(bonusAmount);
+    toast('+$' + earned.toFixed(2) + ' earned!' + (isBonus ? ' 🎉 Bonus!' : ''), 'success');
+    UI.closeCheckin();
+    render();
+  },
+
+  skipDay() {
+    state.streak = 0;
+    save();
+    toast("Streak reset. You've got this tomorrow! 💪", 'info');
+    UI.closeCheckin();
+    render();
+  },
+
+  doWithdraw() {
+    const input = document.getElementById('withdrawInput');
+    const amt   = parseFloat(input.value);
+    if (!amt || amt <= 0)        { toast('Enter a valid amount', 'error'); return; }
+    if (amt > state.balance)     { toast('Not enough in the piggy bank! 🐷', 'error'); return; }
+
+    state.balance = parseFloat((state.balance - amt).toFixed(2));
+    state.history.unshift({ type:'withdraw', amount:amt, label:'Withdrawal', timestamp:Date.now() });
+    save();
+    input.value = '';
+    UI.closeWithdraw();
+    toast('💸 Withdrew $' + amt.toFixed(2), 'success');
+    render();
+  },
+
+  saveSettings() {
+    const taskName    = document.getElementById('sTaskName').value.trim() || 'Daily Task';
+    const amountPerTask = parseFloat(document.getElementById('sAmount').value) || 10;
+    const bonusAmount = parseFloat(document.getElementById('sBonus').value) || 50;
+    const goal        = parseFloat(document.getElementById('sGoal').value)  || 500;
+    state.settings    = { taskName, amountPerTask, bonusAmount, goal };
+    save();
+    UI.closeSettings();
+    toast('Settings saved! ⚙️', 'info');
+    render();
+  },
+
+  resetData() {
+    if (!confirm('Reset ALL data? This cannot be undone!')) return;
+    state = structuredClone(DEFAULTS);
+    save();
+    UI.closeSettings();
+    toast('Data reset!', 'info');
+    render();
+  }
+};
+
+/* ── UI (Modals) ─────────────────────────────────────────────────────────────── */
+const UI = {
+  openCheckin()  { document.getElementById('checkinOverlay').classList.add('open'); },
+  closeCheckin(e){ if (!e || e.target.id === 'checkinOverlay') document.getElementById('checkinOverlay').classList.remove('open'); },
+
+  openWithdraw() {
+    document.getElementById('withdrawInput').value = '';
+    document.getElementById('withdrawOverlay').classList.add('open');
+  },
+  closeWithdraw(e){ if (!e || e.target.id === 'withdrawOverlay') document.getElementById('withdrawOverlay').classList.remove('open'); },
+  setWithdrawAmt(n){ document.getElementById('withdrawInput').value = n; },
+
+  openSettings() {
+    const { taskName, amountPerTask, bonusAmount, goal } = state.settings;
+    document.getElementById('sTaskName').value = taskName;
+    document.getElementById('sAmount').value   = amountPerTask;
+    document.getElementById('sBonus').value    = bonusAmount;
+    document.getElementById('sGoal').value     = goal;
+    document.getElementById('settingsOverlay').classList.add('open');
+  },
+  closeSettings(e){ if (!e || e.target.id === 'settingsOverlay') document.getElementById('settingsOverlay').classList.remove('open'); }
+};
+
+/* ── Animations ──────────────────────────────────────────────────────────────── */
+function wigglePig() {
+  const pig = document.getElementById('piggyWrap');
+  pig.classList.add('wiggling');
+  pig.style.animation = 'pigWiggle 0.5s ease';
+  setTimeout(() => {
+    pig.style.animation = '';
+    pig.classList.remove('wiggling');
+  }, 550);
+}
+
+function spawnCoins(count) {
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.className   = 'coin';
+      c.textContent = '$';
+      c.style.left  = (22 + i * 9) + '%';
+      c.style.top   = '30%';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 1300);
+    }, i * 55);
+  }
+}
+
+function showBonus(amt) {
+  document.getElementById('bonusAmtLabel').textContent = '+$' + amt;
+  const el = document.getElementById('bonusSplash');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ── Toast ───────────────────────────────────────────────────────────────────── */
+let _toastTimer = null;
+function toast(msg, type = 'success') {
+  if (_toastTimer) clearTimeout(_toastTimer);
+  const old = document.getElementById('_toast');
+  if (old) old.remove();
+  const el      = document.createElement('div');
+  el.id         = '_toast';
+  el.className  = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  _toastTimer = setTimeout(() => el.remove(), 3200);
+}
+
+/* ── Notifications ───────────────────────────────────────────────────────────── */
+const Notif = {
+  checkBanner() {
+    if (!('Notification' in window)) return;
+    const banner = document.getElementById('notifBanner');
+    banner.style.display = Notification.permission === 'default' ? 'flex' : 'none';
+    if (Notification.permission === 'granted') this.maybeShow();
+  },
+  request() {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') {
+        toast('Daily reminders enabled! 🔔', 'success');
+        new Notification('🐷 Piggy Bank', {
+          body: "You're all set! We'll remind you to check in daily.",
+          icon: 'icon.svg', tag: 'welcome'
+        });
+      } else {
+        toast('Notifications blocked in browser settings', 'info');
+      }
+      render();
+    });
+  },
+  maybeShow() {
+    if (Notification.permission !== 'granted' || isTodayDone()) return;
+    new Notification('🐷 Piggy Bank — Daily Check-in', {
+      body: 'Did you complete your ' + state.settings.taskName + ' today? Tap to earn $' + state.settings.amountPerTask + '!',
+      icon:   'icon.svg',
+      badge:  'icon.svg',
+      tag:    'daily-checkin',
+      renotify: false
+    });
+  }
+};
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) Notif.maybeShow();
+});
+
+/* ── PWA Install ─────────────────────────────────────────────────────────────── */
+const PWA = {
+  _prompt: null,
+  install() {
+    if (!this._prompt) return;
+    this._prompt.prompt();
+    this._prompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') document.getElementById('installBanner').style.display = 'none';
+    });
+  }
+};
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  PWA._prompt = e;
+  document.getElementById('installBanner').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').style.display = 'none';
+  toast('App installed! 🎉', 'success');
+});
+
+/* ── Service Worker ──────────────────────────────────────────────────────────── */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+/* ── Boot ────────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  render();
+  if (!isTodayDone()) {
+    setTimeout(() => UI.openCheckin(), 1400);
+  }
+});
+</script>
+</body>
+</html>

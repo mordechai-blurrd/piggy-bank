@@ -1,0 +1,41 @@
+{
+  "name": "Daily Piggy Bank",
+  "short_name": "Piggy Bank",
+  "description": "Track your daily habits and earn money every time you complete a task.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0A0B14",
+  "theme_color": "#0A0B14",
+  "orientation": "portrait-primary",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "lifestyle", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Daily Check-in",
+      "short_name": "Check-in",
+      "description": "Log today's task completion",
+      "url": "./index.html?action=checkin",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    }
+  ]
+}

@@ -4,7 +4,7 @@
    - Handles notification clicks
    ════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME  = 'piggybank-v1';
+const CACHE_NAME  = 'piggybank-v2';
 const APP_SHELL   = [
   './',
   './index.html',

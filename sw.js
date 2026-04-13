@@ -1,10 +1,12 @@
 /* ════════════════════════════════════════════════════════════
-   🐷 Daily Piggy Bank — Service Worker
+   🐷 Daily Piggy Bank — Service Worker v2
    - Caches app shell for offline use
-   - Handles notification clicks
+   - Periodic Background Sync: daily reminders fire even
+     when the app is fully closed on Android Chrome
    ════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME  = 'piggybank-v2';
+const CACHE_NAME  = 'piggybank-v3';
+const SETTINGS_KEY = 'piggybank-settings-v1';
 const APP_SHELL   = [
   './',
   './index.html',
@@ -24,7 +26,10 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME && k !== SETTINGS_KEY)
+            .map(k => caches.delete(k))
+      )
     )
   );
   self.clients.claim();
@@ -32,7 +37,6 @@ self.addEventListener('activate', event => {
 
 /* ── Fetch: serve from cache, fall back to network ─────────────────────────── */
 self.addEventListener('fetch', event => {
-  // Only handle GET requests for same-origin resources
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
@@ -40,14 +44,12 @@ self.addEventListener('fetch', event => {
       if (cached) return cached;
 
       return fetch(event.request).then(response => {
-        // Cache successful responses for app files
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback — serve index.html for navigation requests
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
@@ -56,25 +58,94 @@ self.addEventListener('fetch', event => {
   );
 });
 
+/* ══════════════════════════════════════════════════════════════
+   Settings cache helpers
+   The app writes settings here so the SW can read them even
+   when the page is not open (Cache API survives page close).
+══════════════════════════════════════════════════════════════ */
+async function readSettings() {
+  try {
+    const cache = await caches.open(SETTINGS_KEY);
+    const resp  = await cache.match('settings.json');
+    if (!resp) return null;
+    return await resp.json();
+  } catch { return null; }
+}
+
+async function patchSettings(patch) {
+  try {
+    const cache   = await caches.open(SETTINGS_KEY);
+    const current = await readSettings() || {};
+    const updated = { ...current, ...patch };
+    await cache.put('settings.json', new Response(JSON.stringify(updated), {
+      headers: { 'Content-Type': 'application/json' }
+    }));
+  } catch {}
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Periodic Background Sync
+   Chrome on Android wakes this SW ~once per day even when the
+   app is fully closed / killed. minInterval = 12 h gives two
+   chances per day in case the first fires early.
+══════════════════════════════════════════════════════════════ */
+self.addEventListener('periodicsync', event => {
+  if (event.tag === 'piggy-daily-checkin') {
+    event.waitUntil(handleDailySync());
+  }
+});
+
+async function handleDailySync() {
+  if (Notification.permission !== 'granted') return;
+
+  const settings = await readSettings();
+  if (!settings) return;
+
+  // Don't double-notify on the same calendar day
+  const today = new Date().toDateString();
+  if (settings.lastNotifDate === today) return;
+
+  // Also skip if user already checked in today
+  if (settings.lastCheckInDate === today) return;
+
+  // Respect user's chosen reminder time
+  const now = new Date();
+  const [targetH, targetM] = (settings.notifTime || '09:00').split(':').map(Number);
+  const nowMins    = now.getHours() * 60 + now.getMinutes();
+  const targetMins = targetH * 60 + targetM;
+  if (nowMins < targetMins) return;
+
+  await self.registration.showNotification('🐷 Daily Piggy Bank', {
+    body:     `Did you complete your ${settings.taskName || 'daily task'} today? Tap to log it! 💰`,
+    icon:     './icon.svg',
+    badge:    './icon.svg',
+    tag:      'daily-checkin',
+    renotify: true,
+    vibrate:  [200, 100, 200],
+    data:     { url: './' }
+  });
+
+  // Record so we don't fire again today
+  await patchSettings({ lastNotifDate: today });
+}
+
 /* ── Notification click: open / focus the app ──────────────────────────────── */
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      // If app is already open, focus it
       for (const client of clients) {
         if ('focus' in client) return client.focus();
       }
-      // Otherwise open a new window
       return self.clients.openWindow('./index.html?action=checkin');
     })
   );
 });
 
-/* ── Push (future-ready hook) ──────────────────────────────────────────────── */
+/* ── Push (server-sent, future-ready hook) ──────────────────────────────────── */
 self.addEventListener('push', event => {
-  const data = event.data ? event.data.json() : {};
+  const data  = event.data ? event.data.json() : {};
   const title = data.title || '🐷 Daily Piggy Bank';
   const body  = data.body  || "Don't forget to log today's task!";
 
@@ -85,11 +156,7 @@ self.addEventListener('push', event => {
       badge:     './icon.svg',
       tag:       'daily-checkin',
       renotify:  true,
-      vibrate:   [200, 100, 200],
-      actions: [
-        { action: 'done',  title: '✅ Done!' },
-        { action: 'later', title: '⏰ Remind me later' }
-      ]
+      vibrate:   [200, 100, 200]
     })
   );
 });

@@ -974,6 +974,8 @@ const App = {
     UI.closeSettings();
     toast('Settings saved! ⚙️', 'info');
     render();
+    // Keep SW in sync so background notifications use latest settings
+    if (Notification.permission === 'granted') syncSettingsToSW();
   },
 
   addBonus() {
@@ -1092,20 +1094,21 @@ const Notif = {
     banner.style.display = Notification.permission === 'default' ? 'flex' : 'none';
     if (Notification.permission === 'granted') this.maybeShow();
   },
-  request() {
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') {
-        toast('Daily reminders enabled! 🔔', 'success');
-        new Notification('🐷 Piggy Bank', {
-          body: "You're all set! We'll remind you to check in daily.",
-          icon: 'icon.svg', tag: 'welcome'
-        });
-        this.startScheduler();
-      } else {
-        toast('Notifications blocked in browser settings', 'info');
-      }
-      render();
-    });
+  async request() {
+    const p = await Notification.requestPermission();
+    if (p === 'granted') {
+      toast('Daily reminders enabled! 🔔', 'success');
+      new Notification('🐷 Piggy Bank', {
+        body: "You're all set! We'll remind you to check in daily.",
+        icon: 'icon.svg', tag: 'welcome'
+      });
+      this.startScheduler();
+      await syncSettingsToSW();
+      await registerPeriodicSync();
+    } else {
+      toast('Notifications blocked in browser settings', 'info');
+    }
+    render();
   },
   maybeShow() {
     if (Notification.permission !== 'granted' || isTodayDone()) return;
@@ -1161,6 +1164,37 @@ window.addEventListener('appinstalled', () => {
   toast('App installed! 🎉', 'success');
 });
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   Background Notification Helpers
+   Writes user settings into the SW-readable Cache API so the service worker
+   can fire Periodic Background Sync notifications even when app is fully closed.
+══════════════════════════════════════════════════════════════════════════════ */
+async function syncSettingsToSW() {
+  try {
+    const cache = await caches.open('piggybank-settings-v1');
+    await cache.put('settings.json', new Response(JSON.stringify({
+      taskName:       state.settings.taskName      || 'Daily Task',
+      notifTime:      state.settings.notifTime     || '09:00',
+      lastCheckInDate: state.lastCheckInDate        || null,
+      lastNotifDate:  null   // reset so SW will fire on next eligible day
+    }), { headers: { 'Content-Type': 'application/json' } }));
+  } catch {}
+}
+
+async function registerPeriodicSync() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!('periodicSync' in reg)) return;
+    const tags = await reg.periodicSync.getTags();
+    if (!tags.includes('piggy-daily-checkin')) {
+      await reg.periodicSync.register('piggy-daily-checkin', {
+        minInterval: 12 * 60 * 60 * 1000   // 12 hours — two chances per day
+      });
+    }
+  } catch {}
+}
+
 /* ── Service Worker ──────────────────────────────────────────────────────────── */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -1169,7 +1203,12 @@ if ('serviceWorker' in navigator) {
 /* ── Boot ────────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   render();
-  if (Notification.permission === 'granted') Notif.startScheduler();
+  if (Notification.permission === 'granted') {
+    Notif.startScheduler();
+    // Keep SW settings cache current on every load
+    syncSettingsToSW();
+    registerPeriodicSync();
+  }
   if (!isTodayDone()) {
     setTimeout(() => UI.openCheckin(), 1400);
   }
